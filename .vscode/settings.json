@@ -1,0 +1,7 @@
+{
+  "editor.defaultFormatter": "tintinweb.solidity-visual-auditor",
+  "[solidity]": {
+    "editor.defaultFormatter": "NomicFoundation.hardhat-solidity"
+  },
+  "editor.formatOnSave": true
+}
