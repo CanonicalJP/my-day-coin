@@ -23,7 +23,7 @@ contract GemJoin is Auth, CircuitBreaker {
         decimals = gem.decimals();
     }
 
-    function cage() external auth {
+    function stop() external auth {
         _stop();
     }
 
