@@ -23,10 +23,22 @@ contract GemJoin is Auth, CircuitBreaker {
         decimals = gem.decimals();
     }
 
+    ///// PROTOCOL MANAGEMENT /////
+
+    /**
+     * @notice stop (a.k.a pause) contract
+     */
     function stop() external auth {
         _stop();
     }
 
+    ///// USER FACING /////
+
+    /**
+     * @notice add collateral from a position
+     * @param usr owner of the position
+     * @param wad collateral to add
+     */
     function join(address usr, uint wad) external notStopped {
         require(int(wad) >= 0, "Overflow");
         cdpEngine.modifyCollateralBalance(collateralType, usr, int(wad));
@@ -34,6 +46,11 @@ contract GemJoin is Auth, CircuitBreaker {
         emit Join(usr, wad);
     }
 
+    /**
+     * @notice remove collateral from a position
+     * @param usr owner of the position
+     * @param wad collateral to remove
+     */
     function exit(address usr, uint wad) external {
         require(wad <= 2 ** 255, "Overflow"); // The last bit (256) represent the signed intenger. This way, we make sure it's 0
         cdpEngine.modifyCollateralBalance(collateralType, msg.sender, -int(wad));

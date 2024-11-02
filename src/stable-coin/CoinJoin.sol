@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.24;
 
@@ -25,27 +25,38 @@ contract CoinJoin is Auth, CircuitBreaker {
         coin = ICoin(_coin);
     }
 
+    ///// PROTOCOL MANAGEMENT /////
+
+    /**
+     * @notice stop (a.k.a pause) contract
+     */
     function stop() external auth {
         _stop();
     }
 
-    /// @notice Allows a user to repay stablecoins by burning them and receiving CDP Engine coins
-    /// @dev Transfers CDP Engine coins from this contract to the user and burns their stablecoins
-    /// @param usr The address that will receive the CDP Engine coins
-    /// @param wad The amount of stablecoins to burn (in WAD precision - 18 decimals)
-    /// @custom:emits Join - Emits when stablecoins are burned and CDP Engine coins are transferred
+    ///// USER FACING /////
+
+    /**
+     * @notice Allows a user to repay stablecoins by burning them and receiving CDP Engine coins
+     * @dev Transfers CDP Engine coins from this contract to the user and burns their stablecoins
+     * @param usr The address that will receive the CDP Engine coins
+     * @param wad The amount of stablecoins to burn (in WAD precision - 18 decimals)
+     * @custom:emits Join - Emits when stablecoins are burned and CDP Engine coins are transferred
+     */
     function join(address usr, uint wad) external {
         cdpEngine.transferCoin(address(this), usr, RAY * wad);
         coin.burn(msg.sender, wad);
         emit Join(usr, wad);
     }
 
-    /// @notice Allows a user to borrow stablecoins against their CDP collateral
-    /// @dev Transfers coins from msg.sender to this contract in the CDP Engine and mints equivalent stablecoins
-    /// @param usr The address that will receive the minted stablecoins
-    /// @param wad The amount of stablecoins to mint (in WAD precision - 18 decimals)
-    /// @custom:security notStopped - Function cannot be called when contract is stopped
-    /// @custom:emits Exit - Emits when stablecoins are successfully minted
+    /**
+     * @notice Allows a user to borrow stablecoins against their CDP collateral
+     * @dev Transfers coins from msg.sender to this contract in the CDP Engine and mints equivalent stablecoins
+     * @param usr The address that will receive the minted stablecoins
+     * @param wad The amount of stablecoins to mint (in WAD precision - 18 decimals)
+     * @custom:security notStopped - Function cannot be called when contract is stopped
+     * @custom:emits Exit - Emits when stablecoins are successfully minted
+     */
     function exit(address usr, uint wad) external notStopped {
         cdpEngine.transferCoin(msg.sender, address(this), RAY * wad);
         coin.mint(usr, wad);

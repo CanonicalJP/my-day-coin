@@ -35,6 +35,10 @@ contract CDPEngine is Auth, CircuitBreaker {
     uint256 public sysDebt; // Global Debt
 
     ///// PROTOCOL MANAGEMENT /////
+
+    /**
+     * @notice stop (a.k.a pause) contract
+     */
     function stop() external auth {
         _stop();
     }
