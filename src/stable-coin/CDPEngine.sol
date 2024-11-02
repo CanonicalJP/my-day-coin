@@ -34,96 +34,147 @@ contract CDPEngine is Auth, CircuitBreaker {
     uint256 public sysMaxDebt; // Total Debt Ceiling  [rad]
     uint256 public sysDebt; // Global Debt
 
+    ///// PROTOCOL MANAGEMENT /////
     function stop() external auth {
         _stop();
     }
 
-    function init(bytes32 _collType) external auth {
-        require(collaterals[_collType].rateAcc == 0, "Collateral already init");
-        collaterals[_collType].rateAcc = RAD;
+    /**
+     * @notice initiate a collateral ID
+     * @param _colType collateral ID
+     */
+    function init(bytes32 _colType) external auth {
+        require(collaterals[_colType].rateAcc == 0, "CDPEngine: Collateral already init");
+        collaterals[_colType].rateAcc = RAD;
     }
 
+    /**
+     * @notice change the value of sysMaxDebt
+     * @param _key state variable to update
+     * @param _value new value of state variable
+     */
     function set(bytes32 _key, uint _value) external auth notStopped {
         if (_key == "sysMaxDebt") sysMaxDebt = _value;
+        else revert("CDPEngine: _key not reconignized");
+    }
+
+    /**
+     * @notice change the values of the of one collateral id
+     * @param _colType collateral id to update
+     * @param _key state variable to update
+     * @param _value new value of state variable
+     */
+    function set(bytes32 _colType, bytes32 _key, uint _value) external auth notStopped {
+        if (_key == "spot") collaterals[_colType].spot = _value;
+        else if (_key == "maxDebt") collaterals[_colType].maxDebt = _value;
+        else if (_key == "minDebt") collaterals[_colType].minDebt = _value;
         else revert("_key not reconignized");
     }
 
-    function set(bytes32 _collType, bytes32 _key, uint _value) external auth notStopped {
-        if (_key == "spot") collaterals[_collType].spot = _value;
-        else if (_key == "maxDebt") collaterals[_collType].maxDebt = _value;
-        else if (_key == "minDebt") collaterals[_collType].minDebt = _value;
-        else revert("_key not reconignized");
+    /**
+     * @notice add collateral of a position
+     * @param _colType collateral ID
+     * @param _user owner of the collateral
+     * @param _wad collateral to be added
+     */
+    function modifyCollateralBalance(bytes32 _colType, address _user, int256 _wad) external auth {
+        gem[_colType][_user] = Math.add(gem[_colType][_user], _wad);
     }
 
-    // --- CDP Manipulation ---
-    function modifyCDP(
-        bytes32 colType,
-        address cdp,
-        address gemSrc,
-        address coinDest,
-        int deltaCol,
-        int deltaDebt
+    ///// USER FACING ////
+
+    /**
+     * @notice _cdp Manipulation
+     * @param _colType collateral ID
+     * @param _cdp owner of the collateral position _cdp
+     * @param _gemSrc source of gem. gem: collateral
+     * @param _coinDest minting coin for user
+     * @param _deltaCol change in amount of collateral
+     * @param _deltaDebt cbange in the amount of debt
+     */
+    function modify_cdp(
+        bytes32 _colType,
+        address _cdp,
+        address _gemSrc,
+        address _coinDest,
+        int _deltaCol,
+        int _deltaDebt
     ) external notStopped {
-        Position memory pos = positions[colType][cdp];
-        Collateral memory col = collaterals[colType];
+        Position memory pos = positions[_colType][_cdp];
+        Collateral memory col = collaterals[_colType];
         // collateral has been initialised, init()
         require(col.rateAcc != 0, "Collateral not initialized");
 
-        pos.collateral = Math.add(pos.collateral, deltaCol);
-        pos.debt = Math.add(pos.debt, deltaDebt);
-        col.debt = Math.add(col.debt, deltaDebt);
+        pos.collateral = Math.add(pos.collateral, _deltaCol);
+        pos.debt = Math.add(pos.debt, _deltaDebt);
+        col.debt = Math.add(col.debt, _deltaDebt);
 
-        int deltaCoin = Math.mul(col.rateAcc, deltaDebt);
+        int deltaCoin = Math.mul(col.rateAcc, _deltaDebt);
         uint coinDebt = col.rateAcc * pos.debt; // No need for Math.mul, both uint
         sysDebt = Math.add(sysDebt, deltaCoin);
 
+        // TODO: below requires should be asserts?
         // either debt has decreased, or debt ceilings are not exceeded
         require(
-            deltaDebt <= 0 || (col.debt * col.rateAcc <= col.maxDebt && sysDebt <= sysMaxDebt),
-            "Vat/ceiling-exceeded"
+            _deltaDebt <= 0 || (col.debt * col.rateAcc <= col.maxDebt && sysDebt <= sysMaxDebt),
+            "Max Debt (ceiling) exceeded!"
         );
-        // urn is either less risky than before, or it is safe
-        require((deltaDebt <= 0 && deltaCol >= 0) || coinDebt <= pos.collateral * col.spot, "Vat/not-safe");
-
-        // urn is either more safe, or the owner consents
-        require(deltaDebt <= 0 && (deltaCol >= 0 || canModifyAccount(cdp, msg.sender)), "Vat/not-allowed-u");
+        // position is either less risky than before, or it is safe
+        require(
+            (_deltaDebt <= 0 && _deltaCol >= 0) || coinDebt <= pos.collateral * col.spot,
+            "Position will result unsafe"
+        );
+        // position is either more safe, or the owner consents
+        require(_deltaDebt <= 0 && (_deltaCol >= 0 || canModifyAccount(_cdp, msg.sender)), "Not allowed to modify cdp");
         // collateral src consents
-        require(deltaCol <= 0 || canModifyAccount(gemSrc, msg.sender), "Vat/not-allowed-v");
+        require(_deltaCol <= 0 || canModifyAccount(_gemSrc, msg.sender), "Not allowed to modify gem");
         // debt dst consents
-        require(deltaDebt >= 0 || canModifyAccount(coinDest, msg.sender), "Vat/not-allowed-w");
-
-        // urn has no debt, or a non-dusty amount
-        require(pos.debt == 0 || coinDebt >= col.minDebt, "Vat/dust");
+        require(
+            _deltaDebt >= 0 || canModifyAccount(_coinDest, msg.sender),
+            "Not allowed to modify debt of destination"
+        );
+        // position has no debt, or a non-dusty amount
+        require(pos.debt == 0 || coinDebt >= col.minDebt, "Collateral below minimum Debt");
 
         // Moving collateral from gem to pos, hence opposite signs
         // lock collateral => -gem, +pos (deltDebt > 0)
         // lock collateral => +gem, -pos (deltDebt <= 0)
-        gem[colType][gemSrc] = Math.sub(gem[colType][gemSrc], deltaCol);
-        coin[coinDest] = Math.add(coin[coinDest], deltaCoin);
+        gem[_colType][_gemSrc] = Math.sub(gem[_colType][_gemSrc], _deltaCol);
+        coin[_coinDest] = Math.add(coin[_coinDest], deltaCoin);
 
-        positions[colType][cdp] = pos;
-        collaterals[colType] = col;
+        positions[_colType][_cdp] = pos;
+        collaterals[_colType] = col;
     }
 
-    function allowAccountModification(address usr) external {
-        can[msg.sender][usr] = true;
+    /**
+     * @notice delegate permissions
+     * @param _usr the user address to allow permisions on msg.sender
+     */
+    function allowAccountModification(address _usr) external {
+        can[msg.sender][_usr] = true;
     }
 
-    function denyAccountModification(address usr) external {
-        can[msg.sender][usr] = false;
+    /**
+     * @notice revoke permissions
+     * @param _usr he user address to remove permisions on msg.sender
+     */
+    function denyAccountModification(address _usr) external {
+        can[msg.sender][_usr] = false;
     }
 
-    function canModifyAccount(address owner, address usr) internal view returns (bool) {
-        return owner == usr || can[owner][usr];
+    /**
+     * @notice transfer coin
+     * @param _src current owner
+     * @param _dst new owner
+     * @param _rad amount of coin to transfer
+     */
+    function transferCoin(address _src, address _dst, uint256 _rad) external {
+        require(canModifyAccount(_src, msg.sender), "msg.sender have no permissions");
+        coin[_src] -= _rad;
+        coin[_dst] += _rad;
     }
 
-    function transferCoin(address src, address dst, uint256 rad) external {
-        require(canModifyAccount(src, msg.sender), "Vat/not-allowed");
-        coin[src] -= rad;
-        coin[dst] += rad;
-    }
-
-    function modifyCollateralBalance(bytes32 _colType, address _user, int256 _wad) external auth {
-        gem[_colType][_user] = Math.add(gem[_colType][_user], _wad);
+    function canModifyAccount(address _owner, address _usr) internal view returns (bool) {
+        return _owner == _usr || can[_owner][_usr];
     }
 }
