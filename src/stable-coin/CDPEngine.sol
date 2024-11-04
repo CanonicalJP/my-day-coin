@@ -6,24 +6,13 @@ import {Auth} from "../lib/Auth.sol";
 import {CircuitBreaker} from "../lib/CircuitBreaker.sol";
 import {Math} from "../lib/Math.sol";
 import {RAD} from "../lib/Math.sol";
+import {ICDPEngine} from "../interfaces/ICDPEngine.sol";
 
 contract CDPEngine is Auth, CircuitBreaker {
-    struct Collateral {
-        uint256 debt; // Total Normalised Debt, the amount borrowed / rate accumulation at the time of borrowing     [wad]
-        uint256 rateAcc; // Accumulated Rates         [ray]
-        uint256 spot; // Price with Safety Margin  [ray]
-        uint256 maxDebt; // Debt Ceiling              [rad]
-        uint256 minDebt; // Urn Debt Floor            [rad]
-    }
-    struct Position {
-        uint256 collateral; // Locked Collateral  [wad]
-        uint256 debt; // Total Normalised Debt, the amount borrowed / rate accumulation at the time of borrowing     [wad]
-    }
-
     // collateral id => Collateral
-    mapping(bytes32 => Collateral) public collaterals;
+    mapping(bytes32 => ICDPEngine.Collateral) public collaterals;
     // collateral id => owner => Position
-    mapping(bytes32 => mapping(address => Position)) public positions;
+    mapping(bytes32 => mapping(address => ICDPEngine.Position)) public positions;
     // collateral type => address of user => balance of collateral [wad]
     mapping(bytes32 => mapping(address => uint)) public gem;
     // states if the user can modify the owner | owner => user => bool
@@ -76,6 +65,25 @@ contract CDPEngine is Auth, CircuitBreaker {
     }
 
     /**
+     * @notice update the rate accumulator for a collateral
+     * @param _colType collateral ID
+     * @param _coinDst address receiving the profit. Vault
+     * @param _deltaRate change in rate
+     */
+    function updateRateAcc(bytes32 _colType, address _coinDst, int256 _deltaRate) external auth notStopped {
+        ICDPEngine.Collateral storage col = collaterals[_colType];
+        col.rateAcc = Math.add(col.rateAcc, _deltaRate);
+
+        // old total debt = col.rateAcc * col.debt
+        // new total debt = (col.rateAcc + deltaDebt) * col.debt
+        // delta coin = old total debt - new total debt
+        //            = deltaDebt * col.debt
+        int256 deltaCoin = Math.mul(col.debt, _deltaRate);
+        coin[_coinDst] = Math.add(coin[_coinDst], deltaCoin);
+        sysDebt = Math.add(sysDebt, deltaCoin);
+    }
+
+    /**
      * @notice add collateral of a position
      * @param _colType collateral ID
      * @param _user owner of the collateral
@@ -104,8 +112,8 @@ contract CDPEngine is Auth, CircuitBreaker {
         int _deltaCol,
         int _deltaDebt
     ) external notStopped {
-        Position memory pos = positions[_colType][_cdp];
-        Collateral memory col = collaterals[_colType];
+        ICDPEngine.Position memory pos = positions[_colType][_cdp];
+        ICDPEngine.Collateral memory col = collaterals[_colType];
         // collateral has been initialised, init()
         require(col.rateAcc != 0, "Collateral not initialized");
 
