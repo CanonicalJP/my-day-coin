@@ -16,18 +16,15 @@ contract Spotter is Auth, CircuitBreaker {
     }
 
     mapping(bytes32 => Collateral) public collaterals;
-
     ICDPEngine public cdpEngine; // CDP Engine
     uint256 public par; // value of Coin in reference asset (USD) [ray]
 
-    // --- Events ---
     event Poke(
         bytes32 colType,
         uint256 val, // [wad]
         uint256 spot // [ray]
     );
 
-    // --- Init ---
     constructor(address _cdpEngine) {
         cdpEngine = ICDPEngine(_cdpEngine);
         par = RAY; // price of Coin is equal to 1 => 1 COIN = 1 USD
@@ -35,30 +32,52 @@ contract Spotter is Auth, CircuitBreaker {
 
     ///// PROTOCOL MANAGEMENT /////
 
+    /**
+     * @notice stop (a.k.a pause) contract
+     */
     function stop() external auth {
         _stop();
     }
 
-    function set(bytes32 colType, bytes32 key, address _pip) external auth notStopped {
-        if (key == "pip") collaterals[colType].pip = IPriceFeed(_pip);
-        else revert("Spotter/file-unrecognized-param");
+    /**
+     * @notice change the value of pip
+     * @param colType collateral ID
+     * @param _key state variable to update
+     * @param _value new value of state variable
+     */
+    function set(bytes32 _colType, bytes32 _key, address _pip) external auth notStopped {
+        if (_key == "pip") collaterals[_colType].pip = IPriceFeed(_pip);
+        else revert("Spotter: _key not recognized");
     }
 
-    function set(bytes32 key, uint data) external auth notStopped {
+    /**
+     * @notice change the value of par
+     * @param _key state variable to update
+     * @param _value new value of state variable
+     */
+    function set(bytes32 key, uint256 data) external auth notStopped {
         if (key == "par") par = data;
-        else revert("Spotter/file-unrecognized-param");
+        else revert("Spotter: _key not recognized");
     }
 
-    function set(bytes32 colType, bytes32 key, uint data) external auth notStopped {
+    /**
+     * @notice change the value of par
+     * @param _key state variable to update
+     * @param _value new value of state variable
+     */
+    function set(bytes32 colType, bytes32 key, uint256 data) external auth notStopped {
         if (key == "liquidationRatio") collaterals[colType].liquidationRatio = data;
-        else revert("Spotter/file-unrecognized-param");
+        else revert("Spotter: _key not recognized");
     }
 
     ///// USER FACING ////
 
-    // update value
-    function poke(bytes32 colType) external {
-        (uint256 val, bool ok) = collaterals[colType].pip.peek();
+    /**
+     * @notice triggers a Price Feed update
+     * @param _colType
+     */
+    function poke(bytes32 _colType) external {
+        (uint256 val, bool ok) = collaterals[_colType].pip.peek();
 
         // spot = (val * 10**9 / par) / liquidationRatio
         // val [wad] | par [ray]
@@ -66,8 +85,8 @@ contract Spotter is Auth, CircuitBreaker {
         // liquidationRatio = 1450_000_000_000_000_000_000_000_000
         // eth = 2000
         // spot = 1379.31 (liquidation threshold)
-        uint256 spot = ok ? Math.rdiv(Math.rdiv(val * 10 ** 9, par), collaterals[colType].liquidationRatio) : 0;
-        cdpEngine.set(colType, "spot", spot);
-        emit Poke(colType, val, spot);
+        uint256 spot = ok ? Math.rdiv(Math.rdiv(val * 10 ** 9, par), collaterals[_colType].liquidationRatio) : 0;
+        cdpEngine.set(_colType, "spot", spot);
+        emit Poke(_colType, val, spot);
     }
 }
