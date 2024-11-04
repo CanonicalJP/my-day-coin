@@ -25,6 +25,12 @@ interface ICDPEngine {
 
     function updateRateAcc(bytes32, address, int256) external;
 
+    function burn(uint256) external;
+
+    function mint(address, address, uint256) external;
+
+    function update_rate_acc(bytes32, address, int256) external;
+
     ///// GETTERS /////
 
     function positions(bytes32, address) external view returns (Position memory);

@@ -8,6 +8,7 @@ import {Math} from "../lib/Math.sol";
 import {RAD} from "../lib/Math.sol";
 import {ICDPEngine} from "../interfaces/ICDPEngine.sol";
 
+// Vault
 contract CDPEngine is Auth, CircuitBreaker {
     // collateral id => Collateral
     mapping(bytes32 => ICDPEngine.Collateral) public collaterals;
@@ -46,7 +47,7 @@ contract CDPEngine is Auth, CircuitBreaker {
      * @param _key state variable to update
      * @param _value new value of state variable
      */
-    function set(bytes32 _key, uint _value) external auth notStopped {
+    function set(bytes32 _key, uint256 _value) external auth notStopped {
         if (_key == "sysMaxDebt") sysMaxDebt = _value;
         else revert("CDPEngine: _key not reconignized");
     }
@@ -57,7 +58,7 @@ contract CDPEngine is Auth, CircuitBreaker {
      * @param _key state variable to update
      * @param _value new value of state variable
      */
-    function set(bytes32 _colType, bytes32 _key, uint _value) external auth notStopped {
+    function set(bytes32 _colType, bytes32 _key, uint256 _value) external auth notStopped {
         if (_key == "spot") collaterals[_colType].spot = _value;
         else if (_key == "maxDebt") collaterals[_colType].maxDebt = _value;
         else if (_key == "minDebt") collaterals[_colType].minDebt = _value;
@@ -109,8 +110,8 @@ contract CDPEngine is Auth, CircuitBreaker {
         address _cdp,
         address _gemSrc,
         address _coinDest,
-        int _deltaCol,
-        int _deltaDebt
+        int256 _deltaCol,
+        int256 _deltaDebt
     ) external notStopped {
         ICDPEngine.Position memory pos = positions[_colType][_cdp];
         ICDPEngine.Collateral memory col = collaterals[_colType];

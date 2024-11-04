@@ -13,6 +13,7 @@ interface ICoin {
     function burn(address, uint) external;
 }
 
+// mint COIN
 contract CoinJoin is Auth, CircuitBreaker {
     ICDPEngine public cdpEngine; // CDP Engine
     ICoin public coin; // Stablecoin Token

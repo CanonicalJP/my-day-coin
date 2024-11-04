@@ -9,6 +9,7 @@ import {ICDPEngine} from "../interfaces/ICDPEngine.sol";
 import {IPriceFeed} from "../interfaces/IPriceFeed.sol";
 import {RAY} from "../lib/Math.sol";
 
+// Price Discovery
 contract Spotter is Auth, CircuitBreaker {
     struct Collateral {
         IPriceFeed pip; // Price Feed
@@ -41,9 +42,9 @@ contract Spotter is Auth, CircuitBreaker {
 
     /**
      * @notice change the value of pip
-     * @param colType collateral ID
+     * @param _colType collateral ID
      * @param _key state variable to update
-     * @param _value new value of state variable
+     * @param _pip new value Price Feed
      */
     function set(bytes32 _colType, bytes32 _key, address _pip) external auth notStopped {
         if (_key == "pip") collaterals[_colType].pip = IPriceFeed(_pip);
@@ -55,18 +56,19 @@ contract Spotter is Auth, CircuitBreaker {
      * @param _key state variable to update
      * @param _value new value of state variable
      */
-    function set(bytes32 key, uint256 data) external auth notStopped {
-        if (key == "par") par = data;
+    function set(bytes32 _key, uint256 _value) external auth notStopped {
+        if (_key == "par") par = _value;
         else revert("Spotter: _key not recognized");
     }
 
     /**
      * @notice change the value of par
+     * @param _colType collateral ID
      * @param _key state variable to update
      * @param _value new value of state variable
      */
-    function set(bytes32 colType, bytes32 key, uint256 data) external auth notStopped {
-        if (key == "liquidationRatio") collaterals[colType].liquidationRatio = data;
+    function set(bytes32 _colType, bytes32 _key, uint256 _value) external auth notStopped {
+        if (_key == "liquidationRatio") collaterals[_colType].liquidationRatio = _value;
         else revert("Spotter: _key not recognized");
     }
 
@@ -74,7 +76,7 @@ contract Spotter is Auth, CircuitBreaker {
 
     /**
      * @notice triggers a Price Feed update
-     * @param _colType
+     * @param _colType collateral ID
      */
     function poke(bytes32 _colType) external {
         (uint256 val, bool ok) = collaterals[_colType].pip.peek();
