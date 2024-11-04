@@ -97,12 +97,17 @@ contract CDPEngine is Auth, CircuitBreaker {
         gem[_colType][_user] = Math.add(gem[_colType][_user], _wad);
     }
 
-    // Mint unbacked COIN to the coinDst
-    function mint(address debtDst, address coinDst, uint rad) external auth {
-        unbackedDebt[debtDst] += rad;
-        coin[coinDst] += rad;
-        sysUnbackedDebt += rad;
-        sysDebt += rad;
+    /**
+     * @notice Mint unbacked COIN to the coinDst
+     * @param _debtDst who own the unbacked debt
+     * @param _coinDst who receives the COIN
+     * @param _rad amount of COIN
+     */
+    function mint(address _debtDst, address _coinDst, uint _rad) external auth {
+        unbackedDebt[_debtDst] += _rad;
+        coin[_coinDst] += _rad;
+        sysUnbackedDebt += _rad;
+        sysDebt += _rad;
     }
 
     ///// USER FACING ////
@@ -201,13 +206,16 @@ contract CDPEngine is Auth, CircuitBreaker {
         coin[_dst] += _rad;
     }
 
-    // repay the unbackedDebt
-    function burn(uint rad) external {
-        address debtDst = msg.sender;
-        unbackedDebt[u] -= rad;
-        coin[u] -= rad;
-        sysUnbackedDebt -= rad;
-        sysDebt -= rad;
+    /**
+     * @notice repay the unbackedDebt
+     * @param _rad amount of COIN
+     */
+    function burn(uint _rad) external {
+        address _debtDst = msg.sender;
+        unbackedDebt[_debtDst] -= _rad;
+        coin[_debtDst] -= _rad;
+        sysUnbackedDebt -= _rad;
+        sysDebt -= _rad;
     }
 
     function canModifyAccount(address _owner, address _usr) internal view returns (bool) {
