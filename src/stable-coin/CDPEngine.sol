@@ -20,9 +20,12 @@ contract CDPEngine is Auth, CircuitBreaker {
     mapping(address => mapping(address => bool)) public can;
     // owner => borrowed amount
     mapping(address => uint256) public coin;
+    //
+    mapping(address => uint256) public unbackedDebt;
 
     uint256 public sysMaxDebt; // Total Debt Ceiling  [rad]
     uint256 public sysDebt; // Global Debt
+    uint256 public sysUnbackedDebt; // Total Unbacked COIN  [rad]
 
     ///// PROTOCOL MANAGEMENT /////
 
@@ -92,6 +95,14 @@ contract CDPEngine is Auth, CircuitBreaker {
      */
     function modifyCollateralBalance(bytes32 _colType, address _user, int256 _wad) external auth {
         gem[_colType][_user] = Math.add(gem[_colType][_user], _wad);
+    }
+
+    // Mint unbacked COIN to the coinDst
+    function mint(address debtDst, address coinDst, uint rad) external auth {
+        unbackedDebt[debtDst] += rad;
+        coin[coinDst] += rad;
+        sysUnbackedDebt += rad;
+        sysDebt += rad;
     }
 
     ///// USER FACING ////
@@ -188,6 +199,15 @@ contract CDPEngine is Auth, CircuitBreaker {
         require(canModifyAccount(_src, msg.sender), "CDPEngine: msg.sender have no permissions");
         coin[_src] -= _rad;
         coin[_dst] += _rad;
+    }
+
+    // repay the unbackedDebt
+    function burn(uint rad) external {
+        address debtDst = msg.sender;
+        unbackedDebt[u] -= rad;
+        coin[u] -= rad;
+        sysUnbackedDebt -= rad;
+        sysDebt -= rad;
     }
 
     function canModifyAccount(address _owner, address _usr) internal view returns (bool) {
