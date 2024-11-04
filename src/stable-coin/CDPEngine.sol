@@ -61,7 +61,7 @@ contract CDPEngine is Auth, CircuitBreaker {
         if (_key == "spot") collaterals[_colType].spot = _value;
         else if (_key == "maxDebt") collaterals[_colType].maxDebt = _value;
         else if (_key == "minDebt") collaterals[_colType].minDebt = _value;
-        else revert("_key not reconignized");
+        else revert("CDPEngine: _key not reconignized");
     }
 
     /**
@@ -115,7 +115,7 @@ contract CDPEngine is Auth, CircuitBreaker {
         ICDPEngine.Position memory pos = positions[_colType][_cdp];
         ICDPEngine.Collateral memory col = collaterals[_colType];
         // collateral has been initialised, init()
-        require(col.rateAcc != 0, "Collateral not initialized");
+        require(col.rateAcc != 0, "CDPEngine: Collateral not initialized");
 
         pos.collateral = Math.add(pos.collateral, _deltaCol);
         pos.debt = Math.add(pos.debt, _deltaDebt);
@@ -129,24 +129,27 @@ contract CDPEngine is Auth, CircuitBreaker {
         // either debt has decreased, or debt ceilings are not exceeded
         require(
             _deltaDebt <= 0 || (col.debt * col.rateAcc <= col.maxDebt && sysDebt <= sysMaxDebt),
-            "Max Debt (ceiling) exceeded!"
+            "CDPEngine: Max Debt (ceiling) exceeded!"
         );
         // position is either less risky than before, or it is safe
         require(
             (_deltaDebt <= 0 && _deltaCol >= 0) || coinDebt <= pos.collateral * col.spot,
-            "Position will result unsafe"
+            "CDPEngine: Position will result unsafe"
         );
         // position is either more safe, or the owner consents
-        require(_deltaDebt <= 0 && (_deltaCol >= 0 || canModifyAccount(_cdp, msg.sender)), "Not allowed to modify cdp");
+        require(
+            _deltaDebt <= 0 && (_deltaCol >= 0 || canModifyAccount(_cdp, msg.sender)),
+            "CDPEngine: Not allowed to modify cdp"
+        );
         // collateral src consents
-        require(_deltaCol <= 0 || canModifyAccount(_gemSrc, msg.sender), "Not allowed to modify gem");
+        require(_deltaCol <= 0 || canModifyAccount(_gemSrc, msg.sender), "CDPEngine: Not allowed to modify gem");
         // debt dst consents
         require(
             _deltaDebt >= 0 || canModifyAccount(_coinDest, msg.sender),
-            "Not allowed to modify debt of destination"
+            "CDPEngine: Not allowed to modify debt of destination"
         );
         // position has no debt, or a non-dusty amount
-        require(pos.debt == 0 || coinDebt >= col.minDebt, "Collateral below minimum Debt");
+        require(pos.debt == 0 || coinDebt >= col.minDebt, "CDPEngine: Collateral below minimum Debt");
 
         // Moving collateral from gem to pos, hence opposite signs
         // lock collateral => -gem, +pos (deltDebt > 0)
@@ -181,7 +184,7 @@ contract CDPEngine is Auth, CircuitBreaker {
      * @param _rad amount of coin to transfer
      */
     function transferCoin(address _src, address _dst, uint256 _rad) external {
-        require(canModifyAccount(_src, msg.sender), "msg.sender have no permissions");
+        require(canModifyAccount(_src, msg.sender), "CDPEngine: msg.sender have no permissions");
         coin[_src] -= _rad;
         coin[_dst] += _rad;
     }

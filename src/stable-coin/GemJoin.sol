@@ -40,9 +40,9 @@ contract GemJoin is Auth, CircuitBreaker {
      * @param wad collateral to add
      */
     function join(address usr, uint wad) external notStopped {
-        require(int(wad) >= 0, "Overflow");
+        require(int(wad) >= 0, "GemJoin: Overflow");
         cdpEngine.modifyCollateralBalance(collateralType, usr, int(wad));
-        require(gem.transferFrom(msg.sender, address(this), wad), "Transfer failed");
+        require(gem.transferFrom(msg.sender, address(this), wad), "GemJoin: Transfer failed");
         emit Join(usr, wad);
     }
 
@@ -52,9 +52,9 @@ contract GemJoin is Auth, CircuitBreaker {
      * @param wad collateral to remove
      */
     function exit(address usr, uint wad) external {
-        require(wad <= 2 ** 255, "Overflow"); // The last bit (256) represent the signed intenger. This way, we make sure it's 0
+        require(wad <= 2 ** 255, "GemJoin: Overflow"); // The last bit (256) represent the signed intenger. This way, we make sure it's 0
         cdpEngine.modifyCollateralBalance(collateralType, msg.sender, -int(wad));
-        require(gem.transfer(usr, wad), "Transfer failed");
+        require(gem.transfer(usr, wad), "GemJoin: Transfer failed");
         emit Exit(usr, wad);
     }
 }
