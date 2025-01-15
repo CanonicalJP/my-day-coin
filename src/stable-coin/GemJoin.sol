@@ -7,6 +7,7 @@ import {IGem} from "../interfaces/IGem.sol";
 import {Auth} from "../lib/Auth.sol";
 import {CircuitBreaker} from "../lib/CircuitBreaker.sol";
 
+// Deposits collateral
 contract GemJoin is Auth, CircuitBreaker {
     ICDPEngine public cdpEngine; // CDP Engine
     bytes32 public collateralType; // Collateral Type

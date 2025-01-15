@@ -20,7 +20,9 @@ contract CDPEngine is Auth, CircuitBreaker {
     mapping(address => mapping(address => bool)) public can;
     // owner => borrowed amount
     mapping(address => uint256) public coin;
-    //
+    // owner => debt
+    // increases when grab or mint is called
+    // decreases when burn is called
     mapping(address => uint256) public unbackedDebt;
 
     uint256 public sysMaxDebt; // Total Debt Ceiling  [rad]
@@ -110,6 +112,29 @@ contract CDPEngine is Auth, CircuitBreaker {
         sysDebt += _rad;
     }
 
+    function grab(
+        bytes32 colType,
+        address cdp,
+        address gemDst,
+        address debtDst,
+        int256 deltaCol,
+        int256 deltaDebt
+    ) external auth {
+        ICDPEngine.Position storage pos = positions[colType][cdp];
+        ICDPEngine.Collateral storage col = collaterals[colType];
+
+        // both deltaCol and deltaDebt are passed as negative values
+        pos.collateral = Math.add(pos.collateral, deltaCol);
+        pos.debt = Math.add(pos.debt, deltaDebt);
+        col.debt = Math.add(col.debt, deltaDebt);
+
+        int256 deltaCoin = Math.mul(col.rateAcc, deltaDebt);
+
+        gem[colType][gemDst] = Math.sub(gem[colType][gemDst], deltaCol);
+        unbackedDebt[debtDst] = Math.sub(unbackedDebt[debtDst], deltaCoin);
+        sysUnbackedDebt = Math.sub(sysUnbackedDebt, deltaCoin);
+    }
+
     ///// USER FACING ////
 
     /**
@@ -121,7 +146,7 @@ contract CDPEngine is Auth, CircuitBreaker {
      * @param _deltaCol change in amount of collateral
      * @param _deltaDebt cbange in the amount of debt
      */
-    function modify_cdp(
+    function modifyCdp(
         bytes32 _colType,
         address _cdp,
         address _gemSrc,
