@@ -31,6 +31,8 @@ interface ICDPEngine {
 
     function update_rate_acc(bytes32, address, int256) external;
 
+    function grab(bytes32, address, address, address, int256, int256) external;
+
     ///// GETTERS /////
 
     function positions(bytes32, address) external view returns (Position memory);
