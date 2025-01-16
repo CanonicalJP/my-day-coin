@@ -219,6 +219,12 @@ contract CDPEngine is Auth, CircuitBreaker {
         can[msg.sender][_usr] = false;
     }
 
+    function transferCollateral(bytes32 col_type, address src, address dst, uint256 wad) external {
+        require(canModifyAccount(src, msg.sender), "not authorized");
+        gem[col_type][src] -= wad;
+        gem[col_type][dst] += wad;
+    }
+
     /**
      * @notice transfer coin
      * @param _src current owner

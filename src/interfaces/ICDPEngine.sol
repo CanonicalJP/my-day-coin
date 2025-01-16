@@ -17,6 +17,8 @@ interface ICDPEngine {
 
     function modifyCollateralBalance(bytes32, address, int) external;
 
+    function transferCollateral(bytes32, address, address, uint256) external;
+
     function transferCoin(address, address, uint) external;
 
     function set(bytes32, bytes32, uint) external;
