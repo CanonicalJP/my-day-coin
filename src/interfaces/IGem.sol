@@ -8,4 +8,6 @@ interface IGem {
     function transfer(address, uint) external returns (bool);
 
     function transferFrom(address, address, uint) external returns (bool);
+
+    function mint(address, uint256) external;
 }
