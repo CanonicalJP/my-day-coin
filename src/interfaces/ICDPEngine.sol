@@ -25,13 +25,13 @@ interface ICDPEngine {
 
     function collaterals(bytes32) external view returns (Collateral memory);
 
-    function updateRateAcc(bytes32, address, int256) external;
+    function allowAccountModification(address) external;
 
     function burn(uint256) external;
 
     function mint(address, address, uint256) external;
 
-    function update_rate_acc(bytes32, address, int256) external;
+    function updateRateAcc(bytes32, address, int256) external;
 
     function grab(bytes32, address, address, address, int256, int256) external;
 
@@ -43,11 +43,11 @@ interface ICDPEngine {
 
     function coin(address) external view returns (uint256);
 
-    function unbacked_debts(address) external view returns (uint256);
+    function unbackedDebts(address) external view returns (uint256);
 
-    function sys_debt() external view returns (uint256);
+    function sysDebt() external view returns (uint256);
 
-    function sys_unbacked_debt() external view returns (uint256);
+    function sysUnbackedDebt() external view returns (uint256);
 
-    function sys_max_debt() external view returns (uint256);
+    function sysMaxDebt() external view returns (uint256);
 }
